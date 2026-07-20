@@ -1,4 +1,4 @@
-CipherMask: AES-128 Image Steganography
+StegoCrypt: AES-128 Image Steganography
 
 A fully offline, standalone Python desktop application that securely hides encrypted text messages inside of standard image files.
 
