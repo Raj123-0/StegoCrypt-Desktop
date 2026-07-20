@@ -1,55 +1,98 @@
-StegoCrypt: AES-128 Image Steganography
+# StegoCrypt: AES-128 Image Steganography
 
-A fully offline, standalone Python desktop application that securely hides encrypted text messages inside of standard image files.
+**A fully offline, standalone Python desktop application that securely hides encrypted text messages inside standard image files.**
 
-This project combines AES-128 symmetric encryption (via the Fernet module) with Least Significant Bit (LSB) steganography. It is built with a thread-safe customtkinter GUI to ensure the application remains responsive during heavy image-processing workloads.
+StegoCrypt combines AES-128 symmetric encryption (via the `Fernet` module) with Least Significant Bit (LSB) steganography, wrapped in a thread-safe `customtkinter` GUI that stays responsive during heavy image-processing workloads.
 
-Core Features
+---
 
-Military-Grade Encryption: Uses PBKDF2HMAC with a SHA256 hash and 480,000 iterations to securely derive an encryption key from your password, appending a randomized 16-byte salt to every payload.
+## Table of Contents
 
-Invisible Data Masking: Modifies only the least significant bits of the Red, Green, and Blue pixel channels, rendering the hidden payload entirely invisible to the human eye.
+- [Core Features](#core-features)
+- [Installation & Setup](#installation--setup)
+- [How to Use](#how-to-use)
+  - [Encoding (Hiding a Message)](#encoding-hiding-a-message)
+  - [Decoding (Extracting a Message)](#decoding-extracting-a-message)
+- [Supported Formats](#supported-formats)
+- [How It Works](#how-it-works)
+- [License](#license)
 
-Data Protection: Automatically calculates image capacity before encoding and enforces lossless .png outputs to prevent JPEG compression from destroying the steganographic bits.
+---
 
-Thread-Safe Processing: Heavy bitwise operations run on background daemon threads, keeping the progress bar and UI completely responsive without freezing the OS window.
+## Core Features
 
-Installation & Setup
+| Feature | Description |
+|---|---|
+| 🔐 **Strong Encryption** | Derives an encryption key from your password using `PBKDF2HMAC` with SHA-256 and 480,000 iterations, appending a randomized 16-byte salt to every payload. |
+| 🖼️ **Invisible Data Masking** | Modifies only the least significant bits of the Red, Green, and Blue pixel channels — the hidden payload is invisible to the human eye. |
+| 🛡️ **Data Integrity Protection** | Automatically calculates image capacity before encoding and enforces lossless `.png` output, preventing JPEG compression from corrupting the steganographic bits. |
+| ⚡ **Thread-Safe Processing** | Heavy bitwise operations run on background daemon threads, keeping the progress bar and UI responsive and never freezing the window. |
+| 📴 **Fully Offline** | No network calls — your messages, images, and passwords never leave your machine. |
 
-Clone the repository to your local machine:
+---
 
-git clone https://github.com/YOUR-USERNAME/steganography-app.git
-cd steganography-app
+## Installation & Setup
 
+**Requirements:** Python 3.9+
 
-Install the required Python packages:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Raj123-0/StegoCrypt-Desktop.git
+   cd StegoCrypt-Desktop
+   ```
 
-pip install -r requirements.txt
+2. Install the required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+3. Run the application:
+   ```bash
+   python main.py
+   ```
 
-Run the application:
+---
 
-python main.py
+## How to Use
 
+### Encoding (Hiding a Message)
 
-How to Use
+1. Navigate to the **Encode & Hide** tab.
+2. Select a cover image (`.png`, `.jpg`, `.jpeg`, `.bmp`).
+3. Type your secret message into the text box and provide a strong encryption password.
+4. Click **Encode & Save Image**. The app generates a new `.png` file containing your encrypted, hidden message.
 
-Encoding (Hiding a Message)
+### Decoding (Extracting a Message)
 
-Navigate to the Encode & Hide tab.
+1. Navigate to the **Extract & Decrypt** tab.
+2. Select your previously encoded `.png` stego-image.
+3. Enter the exact password used during encryption.
+4. Click **Extract & Decrypt Message**. If the password is correct and the image data is intact, your original message is displayed.
 
-Select a cover image (.png, .jpg, .jpeg, .bmp).
+> ⚠️ **Note:** Always save encoded images as `.png`. Re-saving or converting a stego-image to `.jpg` (or any lossy format) will destroy the hidden data.
 
-Type your secret message into the text box and provide a strong encryption password.
+---
 
-Click Encode & Save Image. The app will generate a new .png file containing your encrypted message.
+## Supported Formats
 
-Decoding (Extracting a Message)
+| Stage | Accepted Input | Output |
+|---|---|---|
+| Encoding | `.png`, `.jpg`, `.jpeg`, `.bmp` | `.png` (lossless, required) |
+| Decoding | `.png` (previously encoded) | Decrypted plaintext message |
 
-Navigate to the Extract & Decrypt tab.
+---
 
-Select your previously encoded .png stego-image.
+## How It Works
 
-Enter the exact password used during encryption.
+1. **Key Derivation** — Your password and a random 16-byte salt are passed through PBKDF2HMAC (SHA-256, 480,000 iterations) to derive a symmetric key.
+2. **Encryption** — The message is encrypted with Fernet (AES-128 in CBC mode with HMAC authentication) using the derived key.
+3. **Embedding** — The encrypted bytes are written into the least significant bits of the image's RGB channels.
+4. **Output** — The result is saved as a lossless `.png` so every embedded bit survives.
 
-Click Extract & Decrypt Message. If the password is correct and the image data is intact, your original message will appear.
+Decoding reverses this process: bits are read from the image, decrypted with a key re-derived from your password and the embedded salt, and the original message is recovered.
+
+---
+
+## License
+
+MIT License 
