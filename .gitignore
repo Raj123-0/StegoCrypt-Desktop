@@ -1,0 +1,17 @@
+Byte-compiled / optimized files
+
+pycache/
+*.py[cod]
+*$py.class
+
+IDE and Editor folders
+
+.vscode/
+.idea/
+
+Virtual Environments
+
+.env
+.venv
+env/
+venv/
