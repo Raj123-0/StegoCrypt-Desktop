@@ -1,17 +1,24 @@
-Byte-compiled / optimized files
-
-pycache/
+# Byte-compiled / optimized files
+__pycache__/
 *.py[cod]
 *$py.class
+*.so
 
-IDE and Editor folders
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
 
+# IDE and Editor folders
 .vscode/
 .idea/
 
-Virtual Environments
-
+# Virtual Environments
 .env
 .venv
 env/
 venv/
+
+# OS
+.DS_Store
+Thumbs.db

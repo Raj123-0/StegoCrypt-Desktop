@@ -1,8 +1,8 @@
 # StegoCrypt: AES-128 Image Steganography
 
-**A fully offline, standalone Python desktop application that securely hides encrypted text messages inside standard image files.**
+**A fully offline Python desktop app (and CLI) that hides encrypted messages or files inside standard image files.**
 
-StegoCrypt combines AES-128 symmetric encryption (via the `Fernet` module) with Least Significant Bit (LSB) steganography, wrapped in a thread-safe `customtkinter` GUI that stays responsive during heavy image-processing workloads.
+StegoCrypt combines AES-128 symmetric encryption (via Fernet) with Least Significant Bit (LSB) steganography. The `customtkinter` GUI stays responsive during image work by running encode/decode on a background thread.
 
 ---
 
@@ -13,8 +13,10 @@ StegoCrypt combines AES-128 symmetric encryption (via the `Fernet` module) with 
 - [How to Use](#how-to-use)
   - [Encoding (Hiding a Message)](#encoding-hiding-a-message)
   - [Decoding (Extracting a Message)](#decoding-extracting-a-message)
+  - [Command line](#command-line)
 - [Supported Formats](#supported-formats)
 - [How It Works](#how-it-works)
+- [Tests](#tests)
 - [License](#license)
 
 ---
@@ -23,11 +25,13 @@ StegoCrypt combines AES-128 symmetric encryption (via the `Fernet` module) with 
 
 | Feature | Description |
 |---|---|
-| 🔐 **Strong Encryption** | Derives an encryption key from your password using `PBKDF2HMAC` with SHA-256 and 480,000 iterations, appending a randomized 16-byte salt to every payload. |
-| 🖼️ **Invisible Data Masking** | Modifies only the least significant bits of the Red, Green, and Blue pixel channels — the hidden payload is invisible to the human eye. |
-| 🛡️ **Data Integrity Protection** | Automatically calculates image capacity before encoding and enforces lossless `.png` output, preventing JPEG compression from corrupting the steganographic bits. |
-| ⚡ **Thread-Safe Processing** | Heavy bitwise operations run on background daemon threads, keeping the progress bar and UI responsive and never freezing the window. |
-| 📴 **Fully Offline** | No network calls — your messages, images, and passwords never leave your machine. |
+| 🔐 **Strong Encryption** | Derives a key from your password using PBKDF2-HMAC-SHA256 (480,000 iterations) and a random 16-byte salt. |
+| 🖼️ **Invisible Data Masking** | Writes only the least significant bits of the R, G, and B channels. |
+| 📁 **Messages and Files** | Hide typed text, load a text file, or embed an arbitrary file and recover it later. |
+| 🛡️ **Integrity-Friendly Output** | Checks image capacity before embedding and always writes lossless `.png` so JPEG recompression cannot wipe the LSBs. |
+| 🔄 **Backward Compatible** | Still extracts payloads created by the original delimiter-based format. |
+| ⚡ **Responsive UI** | Encode/decode run on a background thread, with progress, image preview, capacity estimate, password confirmation, and copy/save of results. |
+| 📴 **Fully Offline** | No network calls. Messages, images, and passwords stay on your machine. |
 
 ---
 
@@ -48,8 +52,9 @@ StegoCrypt combines AES-128 symmetric encryption (via the `Fernet` module) with 
 
 3. Run the application:
    ```bash
-   python main.py
+   python StegoCrypt.py
    ```
+   `python main.py` works the same way.
 
 ---
 
@@ -57,19 +62,33 @@ StegoCrypt combines AES-128 symmetric encryption (via the `Fernet` module) with 
 
 ### Encoding (Hiding a Message)
 
-1. Navigate to the **Encode & Hide** tab.
-2. Select a cover image (`.png`, `.jpg`, `.jpeg`, `.bmp`).
-3. Type your secret message into the text box and provide a strong encryption password.
-4. Click **Encode & Save Image**. The app generates a new `.png` file containing your encrypted, hidden message.
+1. Open the **Encode & Hide** tab.
+2. Select a cover image (`.png`, `.jpg`, `.jpeg`, `.bmp`, `.webp`, `.tif`).
+3. Type a secret message, load a text file, or choose **Hide a File…**.
+4. Enter and confirm a strong encryption password.
+5. Click **Encode & Save Image**. The app writes a new `.png` containing the encrypted payload.
+
+The capacity line under the image estimates whether the cover is large enough *before* you wait on encryption.
 
 ### Decoding (Extracting a Message)
 
-1. Navigate to the **Extract & Decrypt** tab.
-2. Select your previously encoded `.png` stego-image.
-3. Enter the exact password used during encryption.
-4. Click **Extract & Decrypt Message**. If the password is correct and the image data is intact, your original message is displayed.
+1. Open the **Extract & Decrypt** tab.
+2. Select the encoded `.png`.
+3. Enter the password used during encryption.
+4. Click **Extract & Decrypt Message**. Copy the text, or use **Save to File** for text or recovered files.
 
-> ⚠️ **Note:** Always save encoded images as `.png`. Re-saving or converting a stego-image to `.jpg` (or any lossy format) will destroy the hidden data.
+> ⚠️ **Note:** Always keep encoded images as `.png`. Re-saving or converting a stego-image to `.jpg` (or any lossy format) will destroy the hidden data.
+
+### Command line
+
+```bash
+python StegoCrypt.py encode cover.png -o hidden.png -m "secret text" -p yourpassword
+python StegoCrypt.py encode cover.png -o hidden.png --file notes.zip -p yourpassword
+python StegoCrypt.py decode hidden.png -p yourpassword
+python StegoCrypt.py decode hidden.png -p yourpassword -o recovered.zip
+```
+
+If you omit `-p`, the password is requested with a hidden prompt.
 
 ---
 
@@ -77,22 +96,31 @@ StegoCrypt combines AES-128 symmetric encryption (via the `Fernet` module) with 
 
 | Stage | Accepted Input | Output |
 |---|---|---|
-| Encoding | `.png`, `.jpg`, `.jpeg`, `.bmp` | `.png` (lossless, required) |
-| Decoding | `.png` (previously encoded) | Decrypted plaintext message |
+| Encoding | `.png`, `.jpg`, `.jpeg`, `.bmp`, `.webp`, `.tif`, `.tiff` | `.png` (lossless, required) |
+| Decoding | `.png` (previously encoded) | Decrypted text or a recovered file |
 
 ---
 
 ## How It Works
 
-1. **Key Derivation** — Your password and a random 16-byte salt are passed through PBKDF2HMAC (SHA-256, 480,000 iterations) to derive a symmetric key.
-2. **Encryption** — The message is encrypted with Fernet (AES-128 in CBC mode with HMAC authentication) using the derived key.
-3. **Embedding** — The encrypted bytes are written into the least significant bits of the image's RGB channels.
-4. **Output** — The result is saved as a lossless `.png` so every embedded bit survives.
+1. **Packing** — Text or file bytes are wrapped in a small inner header (payload type, and filename when hiding a file).
+2. **Key Derivation** — Your password and a random 16-byte salt go through PBKDF2-HMAC-SHA256 (480,000 iterations).
+3. **Encryption** — The inner payload is encrypted with Fernet (AES-128 in CBC mode plus HMAC).
+4. **Container** — A `SGC1` header stores version, flags, and ciphertext length so extraction does not scan for a delimiter.
+5. **Embedding** — Those bytes are written into RGB least-significant bits and saved as PNG.
 
-Decoding reverses this process: bits are read from the image, decrypted with a key re-derived from your password and the embedded salt, and the original message is recovered.
+Decoding reverses the steps. Images produced by older StegoCrypt builds (delimiter `====END====` after the ciphertext) are still detected and decrypted.
+
+---
+
+## Tests
+
+```bash
+python -m unittest discover -s tests
+```
 
 ---
 
 ## License
 
-MIT License 
+MIT License
