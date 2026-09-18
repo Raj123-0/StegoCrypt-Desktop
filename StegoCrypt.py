@@ -42,11 +42,22 @@ ProgressCallback = Callable[[float], None]
 
 # --- Cryptography ---
 
+
 class CryptoProcessor:
     """AES encryption via Fernet, with PBKDF2-HMAC-SHA256 key derivation."""
 
     @staticmethod
     def _derive_key(password: str, salt: bytes) -> bytes:
+        """Derive key.
+        
+        Args:
+            password:
+            salt:
+        
+        Returns:
+            The computed result
+        
+        """
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
@@ -65,6 +76,16 @@ class CryptoProcessor:
 
     @staticmethod
     def decrypt(payload: bytes, password: str) -> bytes:
+        """Decrypt.
+        
+        Args:
+            payload (list):
+            password:
+        
+        Returns:
+            The computed result
+        
+        """
         if len(payload) < SALT_SIZE:
             raise ValueError("Corrupted data: payload is too short.")
 
@@ -80,11 +101,31 @@ class CryptoProcessor:
 
 # --- Payload packing ---
 
+
 def pack_inner_text(text: str) -> bytes:
+    """Pack inner text.
+    
+    Args:
+        text:
+    
+    Returns:
+        The computed result
+    
+    """
     return bytes([INNER_TEXT]) + text.encode("utf-8")
 
 
 def pack_inner_file(filename: str, content: bytes) -> bytes:
+    """Pack inner file.
+    
+    Args:
+        filename:
+        content:
+    
+    Returns:
+        The computed result
+    
+    """
     name = Path(filename).name.encode("utf-8")
     if len(name) > 65535:
         raise ValueError("Filename is too long to embed.")
@@ -112,6 +153,16 @@ def unpack_inner(data: bytes) -> tuple[str, Optional[str], bytes]:
 
 
 def build_container(encrypted: bytes, is_file: bool) -> bytes:
+    """Create container.
+    
+    Args:
+        encrypted (list):
+        is_file:
+    
+    Returns:
+        The computed result
+    
+    """
     flags = FLAG_FILE if is_file else 0
     return (
         HEADER_MAGIC
@@ -129,12 +180,31 @@ def estimate_embedded_bytes(plaintext_len: int) -> int:
 
 
 def image_capacity_bytes(width: int, height: int) -> int:
+    """Image capacity bytes.
+    
+    Args:
+        width:
+        height:
+    
+    Returns:
+        The computed result
+    
+    """
     return (width * height * 3) // 8
 
 
 # --- LSB helpers ---
 
+
 def _embed_bytes(raw: bytearray, data: bytes, progress_callback: Optional[ProgressCallback] = None) -> None:
+    """Embed bytes.
+    
+    Args:
+        raw (list):
+        data (list):
+        progress_callback:
+    
+    """
     total_bits = len(data) * 8
     if total_bits > len(raw):
         raise ValueError(
@@ -152,6 +222,17 @@ def _embed_bytes(raw: bytearray, data: bytes, progress_callback: Optional[Progre
 
 
 def _extract_bytes_from_raw(raw: bytes, start_bit: int, count: int) -> bytes:
+    """Extract bytes from raw.
+    
+    Args:
+        raw:
+        start_bit:
+        count:
+    
+    Returns:
+        The computed result
+    
+    """
     out = bytearray(count)
     idx = start_bit
     for i in range(count):
@@ -164,6 +245,15 @@ def _extract_bytes_from_raw(raw: bytes, start_bit: int, count: int) -> bytes:
 
 
 def _open_rgb(image_path: str):
+    """Open rgb.
+    
+    Args:
+        image_path:
+    
+    Returns:
+        The computed result
+    
+    """
     from PIL import Image
 
     img = Image.open(image_path)
@@ -173,6 +263,7 @@ def _open_rgb(image_path: str):
 
 
 # --- Steganography ---
+
 
 class StegoProcessor:
     """LSB encode/decode of encrypted payloads inside RGB images."""
@@ -186,6 +277,17 @@ class StegoProcessor:
         is_file: bool = False,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> None:
+        """Encode.
+        
+        Args:
+            image_path:
+            data (list):
+            password:
+            output_path:
+            is_file (bool):
+            progress_callback:
+        
+        """
         from PIL import Image
 
         img = _open_rgb(image_path)
@@ -228,6 +330,16 @@ class StegoProcessor:
         output_path: str,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> None:
+        """Encode text.
+        
+        Args:
+            image_path:
+            text:
+            password:
+            output_path:
+            progress_callback:
+        
+        """
         StegoProcessor.encode(
             image_path,
             pack_inner_text(text),
@@ -245,6 +357,16 @@ class StegoProcessor:
         output_path: str,
         progress_callback: Optional[ProgressCallback] = None,
     ) -> None:
+        """Encode file.
+        
+        Args:
+            image_path:
+            file_path:
+            password:
+            output_path:
+            progress_callback:
+        
+        """
         content = Path(file_path).read_bytes()
         inner = pack_inner_file(file_path, content)
         StegoProcessor.encode(
@@ -270,7 +392,8 @@ class StegoProcessor:
             progress_callback(0.15)
 
         header = _extract_bytes_from_raw(raw, 0, HEADER_SIZE)
-        if header[:4] == HEADER_MAGIC:
+        if header[:
+            4] == HEADER_MAGIC:
             version = header[4]
             if version != HEADER_VERSION:
                 raise ValueError(f"Unsupported StegoCrypt version: {version}.")
@@ -307,6 +430,17 @@ class StegoProcessor:
 
     @staticmethod
     def _decode_legacy(raw: bytes, password: str, progress_callback: Optional[ProgressCallback] = None) -> dict:
+        """Decode legacy.
+        
+        Args:
+            raw (list):
+            password:
+            progress_callback:
+        
+        Returns:
+            dict: Result of type dict
+        
+        """
         extracted = bytearray()
         current_byte = 0
         bit_count = 0
@@ -320,7 +454,8 @@ class StegoProcessor:
                 extracted.append(current_byte)
                 current_byte = 0
                 bit_count = 0
-                if len(extracted) >= delim_len and extracted[-delim_len:] == LEGACY_DELIMITER:
+                if len(extracted) >= delim_len and extracted[-delim_len:
+                    ] == LEGACY_DELIMITER:
                     payload = bytes(extracted[:-delim_len])
                     plaintext = CryptoProcessor.decrypt(payload, password)
                     if progress_callback:
@@ -339,7 +474,17 @@ class StegoProcessor:
 
 # --- GUI ---
 
+
 def _password_strength(password: str) -> tuple[str, str]:
+    """Password strength.
+    
+    Args:
+        password (list):
+    
+    Returns:
+        tuple: Result of type tuple
+    
+    """
     score = 0
     if len(password) >= 8:
         score += 1
@@ -365,6 +510,9 @@ class StegoApp:
     """customtkinter desktop UI. Imported lazily so CLI use does not require a display."""
 
     def __init__(self) -> None:
+        """Init.
+        
+        """
         import customtkinter as ctk
         from PIL import Image
 
@@ -394,6 +542,9 @@ class StegoApp:
         self._build_tabs()
 
     def _build_header(self) -> None:
+        """Create header.
+        
+        """
         ctk = self.ctk
         header = ctk.CTkFrame(self.root, fg_color="transparent")
         header.grid(row=0, column=0, padx=20, pady=(16, 0), sticky="ew")
@@ -419,9 +570,18 @@ class StegoApp:
         self.appearance.grid(row=0, column=1, rowspan=2, sticky="e")
 
     def _on_appearance(self, value: str) -> None:
+        """On appearance.
+        
+        Args:
+            value:
+        
+        """
         self.ctk.set_appearance_mode(value)
 
     def _build_tabs(self) -> None:
+        """Create tabs.
+        
+        """
         ctk = self.ctk
         self.tabview = ctk.CTkTabview(self.root)
         self.tabview.grid(row=1, column=0, padx=20, pady=16, sticky="nsew")
@@ -431,6 +591,9 @@ class StegoApp:
         self._setup_decode_tab()
 
     def _setup_encode_tab(self) -> None:
+        """Setup encode tab.
+        
+        """
         ctk = self.ctk
         tab = self.tabview.tab("Encode & Hide")
         tab.grid_columnconfigure(1, weight=1)
@@ -495,6 +658,9 @@ class StegoApp:
         self.encode_progress.set(0)
 
     def _setup_decode_tab(self) -> None:
+        """Setup decode tab.
+        
+        """
         ctk = self.ctk
         tab = self.tabview.tab("Extract & Decrypt")
         tab.grid_columnconfigure(1, weight=1)
@@ -549,7 +715,13 @@ class StegoApp:
         self.lbl_decode_status = ctk.CTkLabel(tab, text="", text_color="gray")
         self.lbl_decode_status.grid(row=7, column=0, columnspan=3, padx=16, pady=(0, 12), sticky="w")
 
-    def _image_filetypes(self):
+    def _image_filetypes(self) -> list:
+        """Image filetypes.
+        
+        Returns:
+            list: Result of type list
+        
+        """
         return [
             ("Image files", "*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff"),
             ("PNG", "*.png"),
@@ -558,12 +730,28 @@ class StegoApp:
         ]
 
     def _thumbnail(self, path: str):
+        """Thumbnail.
+        
+        Args:
+            path:
+        
+        Returns:
+            The computed result
+        
+        """
         img = self._pil_image.open(path)
         img = img.convert("RGB")
         img.thumbnail((128, 128))
         return self.ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
 
     def _set_preview(self, which: str, path: str) -> None:
+        """Set preview.
+        
+        Args:
+            which:
+            path:
+        
+        """
         try:
             preview = self._thumbnail(path)
         except Exception:
@@ -576,6 +764,12 @@ class StegoApp:
             self.decode_preview.configure(image=preview, text="" if preview else "")
 
     def _refresh_capacity(self, _event=None) -> None:
+        """Refresh capacity.
+        
+        Args:
+            _event:
+        
+        """
         if not self.encode_img_path:
             self.lbl_capacity.configure(text="Capacity: —")
             return
@@ -598,18 +792,33 @@ class StegoApp:
         self.lbl_capacity.configure(text=label, text_color=color)
 
     def _on_password_change(self, _event=None) -> None:
+        """On password change.
+        
+        Args:
+            _event:
+        
+        """
         text, color = _password_strength(self.ent_encode_pass.get())
         self.lbl_strength.configure(text=text, text_color=color)
 
     def _toggle_encode_password(self) -> None:
+        """Toggle encode password.
+        
+        """
         show = "" if self.show_encode_pass.get() else "*"
         self.ent_encode_pass.configure(show=show)
         self.ent_encode_pass2.configure(show=show)
 
     def _toggle_decode_password(self) -> None:
+        """Toggle decode password.
+        
+        """
         self.ent_decode_pass.configure(show="" if self.show_decode_pass.get() else "*")
 
     def select_encode_image(self) -> None:
+        """Select encode image.
+        
+        """
         from tkinter import filedialog
 
         path = filedialog.askopenfilename(
@@ -626,6 +835,9 @@ class StegoApp:
         self._refresh_capacity()
 
     def select_decode_image(self) -> None:
+        """Select decode image.
+        
+        """
         from tkinter import filedialog
 
         path = filedialog.askopenfilename(
@@ -641,6 +853,9 @@ class StegoApp:
         self._set_preview("decode", path)
 
     def load_text_file(self) -> None:
+        """Load and parse text file.
+        
+        """
         from tkinter import filedialog, messagebox
 
         path = filedialog.askopenfilename(
@@ -663,6 +878,9 @@ class StegoApp:
         self._refresh_capacity()
 
     def choose_hide_file(self) -> None:
+        """Choose hide file.
+        
+        """
         from tkinter import filedialog
 
         path = filedialog.askopenfilename(title="Select File to Hide", initialdir=self._last_dir)
@@ -678,12 +896,18 @@ class StegoApp:
         self._refresh_capacity()
 
     def reset_payload(self) -> None:
+        """Reset payload.
+        
+        """
         self.encode_file_path = None
         self.txt_secret.configure(state="normal")
         self.txt_secret.delete("1.0", "end")
         self._refresh_capacity()
 
     def process_encode(self) -> None:
+        """Worker function for encode.
+        
+        """
         from tkinter import filedialog, messagebox
 
         if self.txt_secret.cget("state") == "normal":
@@ -740,9 +964,24 @@ class StegoApp:
         ).start()
 
     def _update_encode_progress(self, progress: float) -> None:
+        """Update encode progress.
+        
+        Args:
+            progress:
+        
+        """
         self.root.after(0, self.encode_progress.set, progress)
 
     def _run_encode(self, message: Optional[str], file_path: Optional[str], password: str, output_path: str) -> None:
+        """Worker function for encode.
+        
+        Args:
+            message:
+            file_path:
+            password:
+            output_path:
+        
+        """
         from tkinter import messagebox
 
         try:
@@ -772,6 +1011,9 @@ class StegoApp:
             self.root.after(0, lambda: self.btn_encode.configure(state="normal", text="Encode & Save Image"))
 
     def _reset_encode_secrets(self) -> None:
+        """Reset encode secrets.
+        
+        """
         self.encode_file_path = None
         self.txt_secret.configure(state="normal")
         self.txt_secret.delete("1.0", "end")
@@ -781,6 +1023,9 @@ class StegoApp:
         self._refresh_capacity()
 
     def process_decode(self) -> None:
+        """Worker function for decode.
+        
+        """
         from tkinter import messagebox
 
         if not self.decode_img_path:
@@ -797,9 +1042,21 @@ class StegoApp:
         threading.Thread(target=self._run_decode, args=(password,), daemon=True).start()
 
     def _update_decode_progress(self, progress: float) -> None:
+        """Update decode progress.
+        
+        Args:
+            progress:
+        
+        """
         self.root.after(0, self.decode_progress.set, progress)
 
     def _run_decode(self, password: str) -> None:
+        """Worker function for decode.
+        
+        Args:
+            password:
+        
+        """
         from tkinter import messagebox
 
         try:
@@ -817,6 +1074,12 @@ class StegoApp:
             self.root.after(0, lambda: self.btn_decode.configure(state="normal", text="Extract & Decrypt Message"))
 
     def _show_decode_result(self, result: dict) -> None:
+        """Show decode result.
+        
+        Args:
+            result:
+        
+        """
         from tkinter import messagebox
 
         self._decode_result = result
@@ -844,6 +1107,9 @@ class StegoApp:
         self.btn_clear_extracted.configure(state="normal")
 
     def copy_extracted(self) -> None:
+        """Copy extracted.
+        
+        """
         from tkinter import messagebox
 
         if not self._decode_result:
@@ -857,6 +1123,9 @@ class StegoApp:
             messagebox.showinfo("File payload", "This result is a file. Use “Save to File” instead of copy.")
 
     def save_extracted(self) -> None:
+        """Save extracted to file.
+        
+        """
         from tkinter import filedialog, messagebox
 
         if not self._decode_result:
@@ -882,6 +1151,12 @@ class StegoApp:
         messagebox.showinfo("Saved", f"Wrote {len(data)} bytes to:\n{path}")
 
     def clear_extracted(self, keep_buttons: bool = False) -> None:
+        """Clear extracted.
+        
+        Args:
+            keep_buttons (bool):
+        
+        """
         self._decode_result = None
         self.txt_extracted.configure(state="normal")
         self.txt_extracted.delete("1.0", "end")
@@ -893,12 +1168,26 @@ class StegoApp:
             self.btn_clear_extracted.configure(state="disabled")
 
     def run(self) -> None:
+        """Worker function for parallel processing.
+        
+        """
         self.root.mainloop()
 
 
 # --- CLI ---
 
+
 def _prompt_password(password: Optional[str], confirm: bool = False) -> str:
+    """Prompt password.
+    
+    Args:
+        password:
+        confirm (bool):
+    
+    Returns:
+        The computed result
+    
+    """
     if password:
         return password
     value = getpass.getpass("Password: ")
@@ -912,6 +1201,12 @@ def _prompt_password(password: Optional[str], confirm: bool = False) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Create parser.
+    
+    Returns:
+        The computed result
+    
+    """
     parser = argparse.ArgumentParser(
         description="StegoCrypt: encrypt data and hide it in a PNG image.",
     )
@@ -932,6 +1227,15 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def run_cli(args: argparse.Namespace) -> int:
+    """Worker function for cli.
+    
+    Args:
+        args:
+    
+    Returns:
+        int: Result of type int
+    
+    """
     if args.command == "encode":
         password = _prompt_password(args.password, confirm=True)
         if args.hide_file and args.message:
@@ -971,6 +1275,12 @@ def run_cli(args: argparse.Namespace) -> int:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
+    """Entry point — parse arguments and run the main computation.
+    
+    Args:
+        argv:
+    
+    """
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = _build_parser()
     if argv and argv[0] in ("encode", "decode", "-h", "--help"):
